@@ -285,6 +285,16 @@
             color: #1e293b;
         }
 
+        .consent-item a {
+            color: #0B4F6C;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .consent-item a:hover {
+            text-decoration: underline;
+        }
+
         /* ===== LOAN OFFER CARD ===== */
         .offer-card {
             background: linear-gradient(135deg, #0B4F6C, #1F7A8C);
@@ -678,7 +688,7 @@
             background: #cbd5e1;
         }
 
-        /* ===== ADMIN PANEL ===== */
+        /* ===== IMPROVED ADMIN PANEL ===== */
         .admin-panel {
             background: white;
             border-radius: 16px;
@@ -730,21 +740,32 @@
             font-size: 0.85em;
         }
 
+        .stats-bar {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8fafc;
+            border-radius: 8px;
+            font-size: 0.85em;
+        }
+
         .app-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 12px;
-            max-height: 400px;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            max-height: 500px;
             overflow-y: auto;
             padding: 5px;
         }
 
         .app-card {
             background: #f8fafc;
-            border-radius: 10px;
-            padding: 12px;
-            font-size: 0.8em;
-            border-left: 3px solid transparent;
+            border-radius: 12px;
+            padding: 15px;
+            font-size: 0.85em;
+            border-left: 4px solid transparent;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
         }
 
         .app-card.pending {
@@ -762,16 +783,17 @@
         .app-actions {
             display: flex;
             gap: 8px;
-            margin-top: 8px;
+            margin-top: 12px;
         }
 
         .app-btn {
-            padding: 4px 12px;
+            padding: 6px 15px;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 0.75em;
+            font-size: 0.8em;
             font-weight: 500;
+            flex: 1;
         }
 
         .approve-btn {
@@ -779,9 +801,17 @@
             color: white;
         }
 
+        .approve-btn:hover {
+            background: #059669;
+        }
+
         .decline-btn {
             background: #ef4444;
             color: white;
+        }
+
+        .decline-btn:hover {
+            background: #dc2626;
         }
 
         /* ===== LENDERS BAR ===== */
@@ -1015,6 +1045,19 @@
             
             .modal-actions {
                 flex-direction: column;
+            }
+            
+            .admin-search {
+                flex-direction: column;
+                width: 100%;
+            }
+            
+            .admin-search input {
+                width: 100%;
+            }
+            
+            .stats-bar {
+                flex-wrap: wrap;
             }
         }
     </style>
@@ -1405,14 +1448,22 @@
             </div>
         </div>
 
-        <!-- ADMIN PANEL -->
+        <!-- IMPROVED ADMIN PANEL -->
         <div class="admin-panel" id="adminPanel">
             <div class="admin-header">
                 <h3>Applications Dashboard</h3>
                 <div class="admin-search">
                     <input type="text" id="adminSearch" placeholder="Search ID or phone..." oninput="filterApplications()">
                     <button onclick="refreshApplications()">Refresh</button>
+                    <button onclick="createTestApplication()" style="background:#f59e0b;">Test</button>
+                    <button onclick="debugStorage()" style="background:#64748b;">Debug</button>
                 </div>
+            </div>
+            <div class="stats-bar">
+                <div><strong>Total:</strong> <span id="statTotal">0</span></div>
+                <div><strong>Pending:</strong> <span id="statPending" style="color: #f59e0b;">0</span></div>
+                <div><strong>Approved:</strong> <span id="statApproved" style="color: #10b981;">0</span></div>
+                <div><strong>Declined:</strong> <span id="statDeclined" style="color: #ef4444;">0</span></div>
             </div>
             <div class="app-grid" id="applicationsList"></div>
         </div>
@@ -1831,6 +1882,7 @@
             
             applications.push(application);
             localStorage.setItem('scb_apps', JSON.stringify(applications));
+            console.log('Application saved:', application); // Debug log
             
             // Update user data
             if (userDB[userKey]) {
@@ -1848,58 +1900,133 @@
             showStep(4);
         }
 
-        // ===== ADMIN FUNCTIONS =====
-        function toggleAdminPanel() {
-            const panel = document.getElementById('adminPanel');
-            panel.classList.toggle('visible');
-            if (panel.classList.contains('visible')) {
-                loadApplications();
+        // ===== IMPROVED ADMIN FUNCTIONS =====
+
+        // Debug function to check localStorage
+        function debugStorage() {
+            console.log('=== LOCALSTORAGE DEBUG ===');
+            console.log('All keys:', Object.keys(localStorage));
+            console.log('scb_apps:', localStorage.getItem('scb_apps'));
+            console.log('scb_users:', localStorage.getItem('scb_users'));
+            
+            try {
+                const apps = JSON.parse(localStorage.getItem('scb_apps') || '[]');
+                console.log('Parsed apps:', apps);
+                alert(`Found ${apps.length} applications. Check console for details.`);
+            } catch (e) {
+                console.error('Error parsing apps:', e);
+                alert('Error parsing applications. Check console.');
             }
         }
 
+        // Create a test application
+        function createTestApplication() {
+            const testApp = {
+                id: 'TEST-' + Date.now(),
+                userKey: 'user_12345678_0712345678',
+                idNumber: '12345678',
+                phoneNumber: '0712345678',
+                amount: 30000,
+                fee: 500,
+                mpesaRef: 'TEST' + Math.random().toString(36).substring(2,8).toUpperCase(),
+                tenure: 3,
+                status: 'pending',
+                timestamp: new Date().toISOString()
+            };
+            
+            applications.push(testApp);
+            localStorage.setItem('scb_apps', JSON.stringify(applications));
+            console.log('Test application created:', testApp);
+            loadApplications();
+        }
+
+        // Load applications with debugging
         function loadApplications() {
-            const list = document.getElementById('applicationsList');
-            const searchTerm = document.getElementById('adminSearch').value.toLowerCase();
+            console.log('Loading applications...');
+            
+            // Get applications from storage
+            const stored = localStorage.getItem('scb_apps');
+            console.log('Raw localStorage data:', stored);
             
             let filtered = applications;
+            if (stored) {
+                try {
+                    filtered = JSON.parse(stored);
+                    console.log('Parsed applications:', filtered);
+                } catch (e) {
+                    console.error('Error parsing applications:', e);
+                    filtered = [];
+                }
+            }
+            
+            const searchTerm = document.getElementById('adminSearch').value.toLowerCase();
+            
             if (searchTerm) {
-                filtered = applications.filter(a => 
-                    a.idNumber.includes(searchTerm) || 
-                    a.phoneNumber.includes(searchTerm) || 
-                    a.mpesaRef.toLowerCase().includes(searchTerm)
+                filtered = filtered.filter(a => 
+                    (a.idNumber && a.idNumber.includes(searchTerm)) || 
+                    (a.phoneNumber && a.phoneNumber.includes(searchTerm)) || 
+                    (a.mpesaRef && a.mpesaRef.toLowerCase().includes(searchTerm))
                 );
             }
             
-            filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            filtered.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
             
+            // Update stats
+            const total = filtered.length;
+            const pending = filtered.filter(a => a.status === 'pending').length;
+            const approved = filtered.filter(a => a.status === 'approved').length;
+            const declined = filtered.filter(a => a.status === 'declined').length;
+            
+            document.getElementById('statTotal').innerText = total;
+            document.getElementById('statPending').innerText = pending;
+            document.getElementById('statApproved').innerText = approved;
+            document.getElementById('statDeclined').innerText = declined;
+            
+            const list = document.getElementById('applicationsList');
             list.innerHTML = '';
             
             if (filtered.length === 0) {
-                list.innerHTML = '<p style="grid-column:1/-1; text-align:center; padding:20px;">No applications found</p>';
+                list.innerHTML = `
+                    <div style="grid-column:1/-1; text-align:center; padding:40px; background:#f8fafc; border-radius:12px;">
+                        <div style="font-size:3em; margin-bottom:10px;">📭</div>
+                        <h3 style="color:#64748b; margin-bottom:5px;">No Applications Yet</h3>
+                        <p style="color:#94a3b8; font-size:0.9em;">Applications will appear here once users submit them.</p>
+                        <button onclick="createTestApplication()" style="margin-top:15px; padding:8px 20px; background:#0B4F6C; color:white; border:none; border-radius:6px; cursor:pointer;">Create Test Application</button>
+                    </div>
+                `;
                 return;
             }
             
-            filtered.forEach(app => {
+            filtered.forEach((app, index) => {
                 const div = document.createElement('div');
-                div.className = `app-card ${app.status}`;
+                div.className = `app-card ${app.status || 'pending'}`;
+                
+                // Format date
+                const date = app.timestamp ? new Date(app.timestamp) : new Date();
+                const formattedDate = date.toLocaleString();
                 
                 let actions = '';
                 if (app.status === 'pending') {
                     actions = `
-                        <button class="app-btn approve-btn" onclick="updateAppStatus('${app.id}', 'approved')">✓ Approve</button>
-                        <button class="app-btn decline-btn" onclick="updateAppStatus('${app.id}', 'declined')">✗ Decline</button>
+                        <button class="app-btn approve-btn" onclick="updateAppStatus('${app.id || index}', 'approved')">✓ Approve</button>
+                        <button class="app-btn decline-btn" onclick="updateAppStatus('${app.id || index}', 'declined')">✗ Decline</button>
                     `;
                 } else {
-                    actions = `<span style="color:${app.status === 'approved' ? '#10b981' : '#ef4444'}; font-weight:500;">${app.status.toUpperCase()}</span>`;
+                    actions = `<span style="color:${app.status === 'approved' ? '#10b981' : '#ef4444'}; font-weight:500;">${(app.status || 'unknown').toUpperCase()}</span>`;
                 }
                 
                 div.innerHTML = `
-                    <div><strong>ID:</strong> ${app.idNumber}</div>
-                    <div><strong>Phone:</strong> ${app.phoneNumber}</div>
-                    <div><strong>Loan:</strong> KSh ${app.amount.toLocaleString()}</div>
-                    <div><strong>Ref:</strong> ${app.mpesaRef}</div>
-                    <div><small>${new Date(app.timestamp).toLocaleString()}</small></div>
-                    <div class="app-actions">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                        <span style="background:${app.status === 'pending' ? '#f59e0b' : app.status === 'approved' ? '#10b981' : '#ef4444'}; color:white; padding:2px 8px; border-radius:12px; font-size:0.7em;">${app.status || 'unknown'}</span>
+                        <span style="color:#64748b; font-size:0.7em;">${formattedDate}</span>
+                    </div>
+                    <div><strong>ID:</strong> ${app.idNumber || 'N/A'}</div>
+                    <div><strong>Phone:</strong> ${app.phoneNumber || 'N/A'}</div>
+                    <div><strong>Loan:</strong> KSh ${(app.amount || 0).toLocaleString()}</div>
+                    <div><strong>Fee:</strong> KSh ${(app.fee || 0).toLocaleString()}</div>
+                    <div><strong>Ref:</strong> ${app.mpesaRef || 'N/A'}</div>
+                    <div><strong>Tenure:</strong> ${app.tenure || 3} months</div>
+                    <div class="app-actions" style="margin-top:10px;">
                         ${actions}
                     </div>
                 `;
@@ -1907,29 +2034,69 @@
             });
         }
 
-        function updateAppStatus(id, status) {
-            const index = applications.findIndex(a => a.id === id);
-            if (index !== -1) {
+        // Update application status
+        function updateAppStatus(appId, status) {
+            console.log('Updating app:', appId, 'to status:', status);
+            
+            // Find by id property or by array index if id is a number
+            let index = -1;
+            
+            // Try to find by id first
+            index = applications.findIndex(a => a.id === appId);
+            
+            // If not found, try to find by index (for test apps)
+            if (index === -1 && !isNaN(appId)) {
+                index = parseInt(appId);
+            }
+            
+            if (index !== -1 && applications[index]) {
                 applications[index].status = status;
                 applications[index].lastUpdated = new Date().toISOString();
                 localStorage.setItem('scb_apps', JSON.stringify(applications));
+                console.log('Application updated:', applications[index]);
                 loadApplications();
+                
+                // Show feedback
+                const toast = document.getElementById('toast');
+                toast.textContent = `Application ${status}`;
+                toast.style.display = 'block';
+                setTimeout(() => toast.style.display = 'none', 2000);
+            } else {
+                console.error('Application not found:', appId);
+                alert('Application not found. Please refresh and try again.');
             }
         }
 
+        // Refresh applications
+        function refreshApplications() {
+            console.log('Refreshing applications...');
+            applications = JSON.parse(localStorage.getItem('scb_apps')) || [];
+            console.log('Loaded applications:', applications);
+            loadApplications();
+        }
+
+        // Filter applications
         function filterApplications() {
             loadApplications();
         }
 
-        function refreshApplications() {
-            applications = JSON.parse(localStorage.getItem('scb_apps')) || [];
-            loadApplications();
+        // Toggle admin panel
+        function toggleAdminPanel() {
+            const panel = document.getElementById('adminPanel');
+            panel.classList.toggle('visible');
+            if (panel.classList.contains('visible')) {
+                // Force reload applications from storage
+                applications = JSON.parse(localStorage.getItem('scb_apps')) || [];
+                console.log('Admin panel opened, applications:', applications);
+                loadApplications();
+            }
         }
 
         // ===== COPY FUNCTIONS =====
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(() => {
                 const toast = document.getElementById('toast');
+                toast.textContent = 'Copied!';
                 toast.style.display = 'block';
                 setTimeout(() => toast.style.display = 'none', 1000);
             }).catch(() => {
@@ -1949,6 +2116,17 @@
             
             // Ensure consent box is visible for new users
             document.getElementById('consentBox').style.display = 'block';
+            
+            // Check if there are any stored applications
+            const stored = localStorage.getItem('scb_apps');
+            if (stored) {
+                try {
+                    applications = JSON.parse(stored);
+                    console.log('Loaded applications on init:', applications);
+                } catch (e) {
+                    console.error('Error loading applications:', e);
+                }
+            }
         });
     </script>
 </body>
