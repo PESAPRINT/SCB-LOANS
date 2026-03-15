@@ -1252,7 +1252,7 @@
                 <a onclick="alert('How It Works:\n\n1. Verify your ID and M-Pesa number\n2. Get your personalized loan offer\n3. Pay processing fee\n4. Receive funds within minutes'); return false;">How It Works</a>
                 <a onclick="alert('Frequently Asked Questions\n\nQ: What are the interest rates?\nA: 6.5% - 9% per month (reducing balance)\n\nQ: How long does disbursement take?\nA: 5-10 minutes after approval\n\nQ: Can I repay early?\nA: Yes, no penalties\n\nQ: What if I\'m CRB listed?\nA: We consider all applications'); return false;">FAQ</a>
                 <a onclick="alert('Contact us:\n\nEmail: support@scbquickloans.co.ke'); return false;">Contact</a>
-                <a href="#" class="admin-link" onclick="toggleAdminPanel(); return false;">Admin</a>
+                <a href="#admin" class="admin-link" onclick="handleAdminNavClick(); return false;">Admin</a>
             </nav>
         </div>
     </header>
@@ -1574,7 +1574,7 @@
                     <p>You have the right to access, correct, or request deletion of your data subject to legal requirements.</p>
                     
                     <h3>6. Contact Us</h3>
-                    <p>For privacy inquiries: dpo@scbquickloans.co.ke</p>
+                    <p>For privacy inquiries: <a href="mailto:privacy@scbquickloans.co.ke">privacy@scbquickloans.co.ke</a></p>
                     
                     <p style="margin-top:20px; font-style:italic;">Last Updated: March 15, 2026</p>
                 </div>
@@ -1590,10 +1590,12 @@
                 </div>
                 <div class="admin-controls">
                     <div class="admin-search">
-                        <input type="text" id="adminSearch" placeholder="Search by ID or Phone...">
+                        <input type="text" id="adminSearch" placeholder="Search by ID or Phone..." onkeydown="if(event.key==='Enter') filterApplications()">
                         <button onclick="filterApplications()">Search</button>
                     </div>
                     <button class="admin-refresh" onclick="refreshApplications()">🔄 Refresh</button>
+                    <button class="admin-refresh" style="background:#10b981;" onclick="exportCSV()">⬇ Export</button>
+                    <button class="admin-refresh" style="background:#64748b;" onclick="closeAdminPanel()">✕ Close</button>
                 </div>
             </div>
             
@@ -1631,6 +1633,25 @@
             </div>
             <p>© 2026 SCB Quick Loans | Licensed by Central Bank of Kenya</p>
         </footer>
+    </div>
+
+    <!-- ADMIN PASSWORD GATE -->
+    <div class="modal-overlay" id="adminAuthModal">
+        <div class="retry-modal">
+            <div class="modal-icon">🔐</div>
+            <div class="modal-title" style="color:#0B4F6C;">Admin Access</div>
+            <div class="modal-text">Enter the admin password to continue</div>
+            <div style="margin-bottom:15px;">
+                <input type="password" id="adminPasswordInput" placeholder="Enter password"
+                    style="width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:1em;text-align:center;"
+                    onkeydown="if(event.key==='Enter') submitAdminPassword()">
+                <div id="adminAuthError" style="color:#dc2626;font-size:0.8em;margin-top:6px;display:none;">Incorrect password. Try again.</div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-primary" onclick="submitAdminPassword()">Login</button>
+                <button class="modal-btn modal-btn-secondary" onclick="cancelAdminAuth()">Cancel</button>
+            </div>
+        </div>
     </div>
 
     <!-- TOAST -->
@@ -2104,16 +2125,77 @@
             }
         }
 
-        // ===== IMPROVED ADMIN FUNCTIONS =====
+        // ===== ADMIN AUTH & HASH ROUTING =====
+        const ADMIN_PASSWORD = 'SCB@2026';
+        let adminAuthenticated = false;
+
+        function handleAdminNavClick() {
+            window.location.hash = '#admin';
+            checkAdminHash();
+        }
+
+        function checkAdminHash() {
+            if (window.location.hash === '#admin') {
+                if (adminAuthenticated || sessionStorage.getItem('scb_admin_auth') === '1') {
+                    adminAuthenticated = true;
+                    openAdminPanel();
+                } else {
+                    // Show password gate
+                    document.getElementById('adminPasswordInput').value = '';
+                    document.getElementById('adminAuthError').style.display = 'none';
+                    document.getElementById('adminAuthModal').classList.add('show');
+                    setTimeout(() => document.getElementById('adminPasswordInput').focus(), 100);
+                }
+            } else {
+                closeAdminPanelSilent();
+            }
+        }
+
+        function submitAdminPassword() {
+            const pwd = document.getElementById('adminPasswordInput').value;
+            if (pwd === ADMIN_PASSWORD) {
+                adminAuthenticated = true;
+                sessionStorage.setItem('scb_admin_auth', '1');
+                document.getElementById('adminAuthModal').classList.remove('show');
+                openAdminPanel();
+            } else {
+                document.getElementById('adminAuthError').style.display = 'block';
+                document.getElementById('adminPasswordInput').value = '';
+                document.getElementById('adminPasswordInput').focus();
+            }
+        }
+
+        function cancelAdminAuth() {
+            document.getElementById('adminAuthModal').classList.remove('show');
+            // Clear the hash without triggering hashchange loop
+            history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+
+        function openAdminPanel() {
+            const panel = document.getElementById('adminPanel');
+            panel.classList.add('visible');
+            refreshApplications();
+            setTimeout(() => {
+                panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+        }
+
+        function closeAdminPanel() {
+            closeAdminPanelSilent();
+            history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+
+        function closeAdminPanelSilent() {
+            document.getElementById('adminPanel').classList.remove('visible');
+        }
+
+        // ===== LEGACY TOGGLE (kept for compatibility) =====
         function toggleAdminPanel() {
             const panel = document.getElementById('adminPanel');
-            panel.classList.toggle('visible');
             if (panel.classList.contains('visible')) {
-                refreshApplications();
-                // Scroll to admin panel smoothly
-                setTimeout(() => {
-                    panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }, 100);
+                closeAdminPanel();
+            } else {
+                handleAdminNavClick();
             }
         }
 
@@ -2240,6 +2322,29 @@
             loadApplications();
         }
 
+        // ===== CSV EXPORT =====
+        function exportCSV() {
+            if (applications.length === 0) {
+                showToast('No applications to export');
+                return;
+            }
+            const headers = ['ID','App ID','Phone','Loan Amount','Fee','M-Pesa Ref','Tenure','Status','Date'];
+            const rows = applications.map(a => [
+                a.idNumber, a.id, a.phoneNumber, a.amount, a.fee,
+                a.mpesaRef, a.tenure || '', a.status,
+                a.timestamp ? new Date(a.timestamp).toLocaleString() : ''
+            ]);
+            const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `scb_applications_${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Exported!');
+        }
+
         // Show toast message
         function showToast(message) {
             const toast = document.getElementById('toast');
@@ -2271,12 +2376,15 @@
             // Load applications from storage
             applications = JSON.parse(localStorage.getItem('scb_apps')) || [];
             console.log('Loaded applications:', applications.length);
+
+            // Hash-based admin routing on page load
+            checkAdminHash();
         });
 
-        // Add search listener
-        document.getElementById('adminSearch').addEventListener('input', function() {
-            loadApplications();
+        // Listen for hash changes (e.g. browser back/forward or direct link)
+        window.addEventListener('hashchange', function() {
+            checkAdminHash();
         });
     </script>
 </body>
-  </html>
+</html>
