@@ -237,6 +237,24 @@
             margin-top: 4px;
         }
 
+        /* ===== BINDING ERROR MESSAGE ===== */
+        .binding-error {
+            background: #fee2e2;
+            border-left: 4px solid #dc2626;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #991b1b;
+            font-size: 0.9em;
+            display: none;
+        }
+
+        .binding-error strong {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 1em;
+        }
+
         /* ===== NOTICE BOX ===== */
         .notice-box {
             background: #fef3c7;
@@ -1187,14 +1205,20 @@
             <div class="form-row">
                 <div class="form-group">
                     <label>ID Number</label>
-                    <input type="text" id="idNumber" placeholder="e.g., 12345678" oninput="validateIdNumber(); checkForReturningUser()">
+                    <input type="text" id="idNumber" placeholder="e.g., 12345678" oninput="validateIdNumber(); checkBindingOnInput()">
                     <div class="input-hint" id="idValidation" style="color:#dc2626; display:none;">Numbers only, min 5 digits</div>
                 </div>
                 <div class="form-group">
                     <label>M-Pesa Number</label>
-                    <input type="tel" id="phoneNumber" placeholder="e.g., 0712345678" maxlength="10" oninput="validatePhoneNumber(); checkForReturningUser()">
+                    <input type="tel" id="phoneNumber" placeholder="e.g., 0712345678" maxlength="10" oninput="validatePhoneNumber(); checkBindingOnInput()">
                     <div class="input-hint" id="phoneValidation" style="color:#dc2626; display:none;">Safaricom only (07/01)</div>
                 </div>
+            </div>
+
+            <!-- Binding Error Message -->
+            <div class="binding-error" id="bindingError">
+                <strong>⛔ Identity Mismatch Detected</strong>
+                <p id="bindingErrorMessage"></p>
             </div>
 
             <div class="notice-box">
@@ -1581,6 +1605,7 @@
         let selectedTenure = 3;
         let declinedAppData = null;
         let currentUserKey = null;
+        let isBindingValid = true;
 
         // ===== DATA STORAGE =====
         let userDB = JSON.parse(localStorage.getItem('scb_users')) || {};
@@ -1619,7 +1644,6 @@
 
         // ===== ID-PHONE BINDING FUNCTIONS =====
         function bindIdAndPhone(idNumber, phoneNumber) {
-            // Store bidirectional binding
             idToPhoneMap[idNumber] = phoneNumber;
             phoneToIdMap[phoneNumber] = idNumber;
             
@@ -1630,23 +1654,63 @@
         }
 
         function checkIdPhoneBinding(idNumber, phoneNumber) {
-            // Check if ID is already bound to a different phone
+            // Check if ID exists and is bound to a different phone
             if (idToPhoneMap[idNumber] && idToPhoneMap[idNumber] !== phoneNumber) {
                 return {
                     valid: false,
-                    message: `This ID number is already registered with phone ${idToPhoneMap[idNumber]}`
+                    message: `This ID number (${idNumber}) is already registered with phone number ${idToPhoneMap[idNumber]}. Each ID can only be linked to one phone number.`
                 };
             }
             
-            // Check if phone is already bound to a different ID
+            // Check if phone exists and is bound to a different ID
             if (phoneToIdMap[phoneNumber] && phoneToIdMap[phoneNumber] !== idNumber) {
                 return {
                     valid: false,
-                    message: `This phone number is already registered with ID ${phoneToIdMap[phoneNumber]}`
+                    message: `This phone number (${phoneNumber}) is already registered with ID ${phoneToIdMap[phoneNumber]}. Each phone can only be linked to one ID.`
+                };
+            }
+            
+            // Check in applications for any existing combination
+            const existingIdApp = applications.find(a => a.idNumber === idNumber && a.phoneNumber !== phoneNumber);
+            if (existingIdApp) {
+                return {
+                    valid: false,
+                    message: `This ID number (${idNumber}) already has an application with phone ${existingIdApp.phoneNumber}.`
+                };
+            }
+            
+            const existingPhoneApp = applications.find(a => a.phoneNumber === phoneNumber && a.idNumber !== idNumber);
+            if (existingPhoneApp) {
+                return {
+                    valid: false,
+                    message: `This phone number (${phoneNumber}) already has an application with ID ${existingPhoneApp.idNumber}.`
                 };
             }
             
             return { valid: true };
+        }
+
+        // Check binding on input and show error immediately
+        function checkBindingOnInput() {
+            const id = document.getElementById('idNumber').value;
+            const phone = document.getElementById('phoneNumber').value;
+            
+            if (id.length >= 5 && isSafaricom(phone)) {
+                const bindingCheck = checkIdPhoneBinding(id, phone);
+                isBindingValid = bindingCheck.valid;
+                
+                if (!bindingCheck.valid) {
+                    document.getElementById('bindingError').style.display = 'block';
+                    document.getElementById('bindingErrorMessage').innerText = bindingCheck.message;
+                    document.getElementById('continueBtn1').disabled = true;
+                } else {
+                    document.getElementById('bindingError').style.display = 'none';
+                    checkStep1Complete();
+                }
+            } else {
+                document.getElementById('bindingError').style.display = 'none';
+                isBindingValid = true;
+            }
         }
 
         // ===== VALIDATION FUNCTIONS =====
@@ -1680,7 +1744,9 @@
             const c1 = document.getElementById('consent1').checked;
             const c2 = document.getElementById('consent2').checked;
             const c3 = document.getElementById('consent3').checked;
-            document.getElementById('continueBtn1').disabled = !(id && phone && c1 && c2 && c3);
+            
+            // Only enable if all validations pass AND binding is valid
+            document.getElementById('continueBtn1').disabled = !(id && phone && c1 && c2 && c3 && isBindingValid);
         }
 
         // ===== CHECK FOR RETURNING USER IMMEDIATELY =====
@@ -1806,6 +1872,8 @@
             document.getElementById('consent3').checked = false;
             document.getElementById('mpesaMessage').value = '';
             document.getElementById('consentBox').style.display = 'block';
+            document.getElementById('bindingError').style.display = 'none';
+            isBindingValid = true;
             showStep(1);
         }
 
@@ -1814,7 +1882,7 @@
             const id = document.getElementById('idNumber').value;
             const phone = document.getElementById('phoneNumber').value;
             
-            // Check binding first
+            // Check binding first - this should never happen if UI is working, but double-check
             const bindingCheck = checkIdPhoneBinding(id, phone);
             if (!bindingCheck.valid) {
                 alert(bindingCheck.message);
@@ -1988,9 +2056,6 @@
                 userDB[userKey].lastApplied = new Date().toISOString();
                 localStorage.setItem('scb_users', JSON.stringify(userDB));
             }
-            
-            // WhatsApp notification (number removed as requested)
-            const message = `🔔 NEW APPLICATION%0AID: ${id}%0APhone: ${phone}%0ALoan: KSh ${qualifiedAmount}%0AFee: KSh ${processingFee}%0ARef: ${mpesaCode}%0ATenure: ${selectedTenure}mo`;
             
             document.getElementById('confirmationRef').innerHTML = `<strong>Reference:</strong> ${mpesaCode}`;
             showStep(4);
